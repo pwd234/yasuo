@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>康佳萍·跳跳虎老师接水果</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  background: #fdf6e3;
+  font-family: "Arial Rounded MT Bold", sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+.title {
+  font-size: 24px;
+  color: #e91e63;
+  margin: 10px 0;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+}
+.score-panel {
+  width: 90%;
+  max-width: 400px;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 15px;
+  background: #fff;
+  border-radius: 15px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+.game-area {
+  width: 100%;
+  max-width: 400px;
+  height: 70vh;
+  background: linear-gradient(to bottom, #87ceeb 90%, #90ee90 90%);
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+#tiger {
+  width: 70px;
+  height: 70px;
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 50px;
+  text-align: center;
+  z-index: 10;
+}
+.fruit, .bomb {
+  width: 40px;
+  height: 40px;
+  font-size: 30px;
+  position: absolute;
+  top: -50px;
+  text-align: center;
+}
+
+.encourage-popup, .bomb-tip-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: #fff0f6;
+  padding: 25px 30px;
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  text-align: center;
+  font-size: 18px;
+  color: #d81b60;
+  z-index: 999;
+  animation: popupAnim 1.5s ease forwards;
+}
+.bomb-tip-popup {
+  background: #ffeef0;
+  color: #e53935;
+}
+@keyframes popupAnim {
+  0%   { transform: translate(-50%, -50%) scale(0); }
+  20%  { transform: translate(-50%, -50%) scale(1.1); }
+  80%  { transform: translate(-50%, -50%) scale(1); }
+  100% { transform: translate(-50%, -50%) scale(0); }
+}
+
+.game-over {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255,255,255,0.95);
+  padding: 30px 25px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  display: none;
+  z-index: 999;
+}
+.game-over h2 {
+  color: #e91e63;
+  margin-bottom: 10px;
+}
+.game-over p {
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+.restart-btn {
+  padding: 12px 24px;
+  background: #e91e63;
+  color: white;
+  border: none;
+  border-radius: 30px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.restart-btn:active {
+  transform: scale(0.96);
+}
+</style>
+</head>
+<body>
+
+<div class="title">康佳萍·跳跳虎接水果</div>
+<div class="score-panel">
+  <div>分数: <span id="score">0</span></div>
+  <div>生命: <span id="lives">10</span></div>
+</div>
+
+<div class="game-area" id="gameArea">
+  <div id="tiger">🐯</div>
+</div>
+
+<div class="game-over" id="gameOver">
+  <h2>游戏结束</h2>
+  <p>最终分数: <span id="finalScore">0</span></p>
+  <button class="restart-btn" onclick="restartGame()">再来一局</button>
+</div>
+
+<script>
+const gameArea = document.getElementById('gameArea');
+const tiger = document.getElementById('tiger');
+const scoreEl = document.getElementById('score');
+const livesEl = document.getElementById('lives');
+const gameOverEl = document.getElementById('gameOver');
+const finalScoreEl = document.getElementById('finalScore');
+
+let score = 0;
+let lives = 10;
+let gameRunning = true;
+let tigerX = gameArea.clientWidth / 2 - 35;
+let consecutiveSuccess = 0;
+
+const encourageTexts = [
+  "跳跳虎老师太棒啦！连续10次完美接住～",
+  "跳跳虎老师太厉害了，继续加油！",
+  "哇！跳跳虎老师简直是接水果高手～",
+  "跳跳虎老师好厉害，生命数值＋1！",
+  "太棒了跳跳虎老师，保持这个节奏！",
+  "跳跳虎老师你是最棒的，继续冲！",
+  "跳跳虎老师太棒啦！",
+  "继续冲跳跳虎老师！",
+  "工作之余玩玩游戏放松身心跳跳虎老师！",
+  "这是特地为跳跳虎老师设计的游戏！",
+  "小小游戏，跳跳虎老师轻松拿下！",
+  "希望小小游戏能给跳跳虎老师带来快乐！"
+];
+
+const fruits = ['🍎', '🍐', '🍊', '🍋', '🍌', '🍇', '🍓', '🫐'];
+
+tiger.style.left = `${tigerX}px`;
+
+let startX = 0;
+document.addEventListener('touchstart', e => {
+  startX = e.touches[0].clientX;
+});
+document.addEventListener('touchmove', e => {
+  if (!gameRunning) return;
+  const moveX = e.touches[0].clientX - startX;
+  tigerX += moveX;
+  if (tigerX < 0) tigerX = 0;
+  if (tigerX > gameArea.clientWidth - 70) tigerX = gameArea.clientWidth - 70;
+  tiger.style.left = `${tigerX}px`;
+  startX = e.touches[0].clientX;
+});
+
+function showEncourage() {
+  const text = encourageTexts[Math.floor(Math.random() * encourageTexts.length)];
+  const div = document.createElement('div');
+  div.className = 'encourage-popup';
+  div.innerText = text;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 1500);
+}
+
+function showBombTip() {
+  const div = document.createElement('div');
+  div.className = 'bomb-tip-popup';
+  div.innerText = "跳跳虎老师要小心呀，不小心接到炸弹了";
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 1500);
+}
+
+function createItem() {
+  if (!gameRunning) return;
+
+  const item = document.createElement('div');
+  const isBomb = Math.random() < 0.25;
+
+  if (isBomb) {
+    item.classList.add('bomb');
+    item.innerHTML = '💣';
+  } else {
+    item.classList.add('fruit');
+    item.innerHTML = fruits[Math.floor(Math.random() * fruits.length)];
+  }
+
+  const left = Math.random() * (gameArea.clientWidth - 40);
+  item.style.left = `${left}px`;
+  gameArea.appendChild(item);
+
+  let top = 0;
+  const fallSpeed = 4;
+
+  const fallInterval = setInterval(() => {
+    if (!gameRunning) {
+      clearInterval(fallInterval);
+      return;
+    }
+    top += fallSpeed;
+    item.style.top = `${top}px`;
+
+    const tigerRect = tiger.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+
+    if (
+      itemRect.bottom >= tigerRect.top &&
+      itemRect.left < tigerRect.right &&
+      itemRect.right > tigerRect.left
+    ) {
+      clearInterval(fallInterval);
+      item.remove();
+
+      if (isBomb) {
+        lives--;
+        consecutiveSuccess = 0;
+        showBombTip();
+        updateUI();
+        checkGameOver();
+      } else {
+        score++;
+        consecutiveSuccess++;
+
+        if (score % 5 === 0) {
+          lives++;
+        }
+
+        // 改为连续10次触发鼓励
+        if (consecutiveSuccess >= 10) {
+          showEncourage();
+          consecutiveSuccess = 0;
+        }
+
+        updateUI();
+      }
+    }
+
+    if (top > gameArea.clientHeight - 50) {
+      clearInterval(fallInterval);
+      item.remove();
+      if (!isBomb) {
+        lives--;
+        consecutiveSuccess = 0;
+        updateUI();
+        checkGameOver();
+      }
+    }
+  }, 20);
+
+  setTimeout(createItem, Math.random() * 800 + 500);
+}
+
+function updateUI() {
+  scoreEl.textContent = score;
+  livesEl.textContent = lives;
+}
+
+function checkGameOver() {
+  if (lives <= 0) {
+    gameRunning = false;
+    finalScoreEl.textContent = score;
+    gameOverEl.style.display = 'block';
+  }
+}
+
+function restartGame() {
+  score = 0;
+  lives = 10;
+  gameRunning = true;
+  tigerX = gameArea.clientWidth / 2 - 35;
+  tiger.style.left = `${tigerX}px`;
+  consecutiveSuccess = 0;
+  updateUI();
+  gameOverEl.style.display = 'none';
+  document.querySelectorAll('.fruit, .bomb, .encourage-popup, .bomb-tip-popup').forEach(f => f.remove());
+  createItem();
+}
+
+createItem();
+</script>
+</body>
+</html>
